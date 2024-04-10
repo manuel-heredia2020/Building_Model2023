@@ -1,0 +1,316 @@
+### A Pluto.jl notebook ###
+# v0.19.38
+
+using Markdown
+using InteractiveUtils
+
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
+# ╔═╡ 6b9ae78f-bac5-4f3c-ae59-d2c80480f97f
+using Pkg
+
+# ╔═╡ 4606f401-9493-4029-beaa-e293a51658d8
+Pkg.activate("Project.toml")
+
+# ╔═╡ 2b4ef7ee-fb4a-11ec-3d0e-0f782e2b6bff
+begin 
+using DataFrames
+using StatsBase
+using HypothesisTests
+using StateSpaceModels 
+using CSV
+using Plots
+using PlutoUI
+end 
+
+# ╔═╡ 5756f9a0-8594-4d1c-af6a-f51e72238245
+md"
+# Analysis of Time Series
+"
+
+# ╔═╡ ce63855b-58e2-45cc-bbac-401151de6cd4
+md" Introduce data here"
+
+# ╔═╡ 0bbdcdd0-284e-4b4c-b466-1076eb540f16
+yy=[4.015812566
+3.955762805
+3.895920977
+3.82844574
+3.755066511
+3.673411002
+3.576262712
+3.49583848
+3.428744344
+3.365809635
+3.311648334
+3.27273616
+3.235251629
+3.19774596
+3.154942734
+3.120014606
+3.088501747
+3.049767925
+3.000793519
+2.949492649
+2.905990205
+2.86695659
+2.832111719
+2.809859575
+2.788772447
+2.771005545
+2.751504751
+2.732368598
+2.713132338
+2.689376745
+2.664136057
+2.647179396
+2.626439664];
+
+# ╔═╡ 51adcd77-efa2-4ba2-9e7b-81f3f91707f2
+plot(yy)
+
+# ╔═╡ bec161ff-769e-44e6-900b-ff93d271ca36
+begin
+diffy=diff(yy);
+ddiffy=diff(diffy);
+end
+
+# ╔═╡ 18e18a70-812e-4517-a32c-dffa8b2e030e
+plot(diffy)
+
+# ╔═╡ 1d15e180-dcb0-4e23-bd52-bf51e553bdb1
+plot(ddiffy)
+
+# ╔═╡ 148f9adf-df73-4f64-8314-133c408ed912
+log_yy=diff(log.(yy));
+
+# ╔═╡ cb70a5f0-83fd-4fea-bcf0-c779aec9b301
+plot(log_yy)
+
+# ╔═╡ e3c8a4ab-b81a-4c43-817f-e58f71918da1
+ADFTest(ddiffy, :constant, 1)
+
+# ╔═╡ 99013baf-9c22-45f4-b552-4b9a810c22ec
+md"
+## AutoCorrelation Function
+"
+
+# ╔═╡ e82e3741-9376-4b72-a944-bafb6988da70
+lags =0:2;
+
+# ╔═╡ b5d7dac3-1b06-404c-a12e-498106fe1209
+#use the correct tS or difference
+acf=autocor(ddiffy,lags;demean=true)
+
+# ╔═╡ 3a5388e7-61b4-4fd3-ba08-dcbd70da2ad9
+LCI=-1.96/sqrt(length(ddiffy))
+
+# ╔═╡ d88e5513-5eb6-4477-98e8-e97ca4b7df60
+begin
+plot();
+p1=plot(acf, line=:stem);
+hline!(p1,[LCI]);
+hline!(p1,[-1*LCI])
+end
+
+# ╔═╡ 7fc19e9f-ce65-43fc-8f9f-e1faa272edde
+md"
+## Partial AutoCorrelation Function
+"
+
+# ╔═╡ e02c2e0b-2467-436b-8686-ebc93383408f
+lag=0:2
+
+# ╔═╡ a22a2bdb-c9e8-4e47-9c98-e2baf3722832
+#use the correct tS or difference
+Pacfplot=pacf(ddiffy,lag;method=:regression)
+
+# ╔═╡ d3e3969d-4077-47db-9745-4784094a8520
+begin
+plot();
+p2=plot(Pacfplot, line=:stem);
+hline!(p2,[-1*LCI]);
+hline!(p2,[LCI]);
+end
+
+# ╔═╡ 6c325e7d-08ee-4a22-badc-d4f29e493577
+# Options are yy diffy or ddiffy or log_yy
+x=yy; 
+
+# ╔═╡ 4ccb2617-9f6c-453b-b32c-bcdb39eaa38e
+md"""
+# Testing Models
+"""
+
+# ╔═╡ ab46a702-49fe-4a81-8613-4e9c886df841
+@bind test_train Slider(0:0.05:1, default=0.75 )
+
+# ╔═╡ 23e7b3bf-a535-444f-b978-c0866ffbc0cf
+test_train
+
+# ╔═╡ 6a3e3eaa-6ef7-4db2-a7d3-8bd823e56378
+begin
+length_train=Int(floor(length(x)*test_train));
+train=x[1:length_train];
+test=x[length_train+1:length(x)];
+end;
+
+# ╔═╡ 66854283-afee-44c5-a636-f416b3c5bdb1
+length(x)
+
+# ╔═╡ 17f46aef-2575-460b-9546-60b878216e40
+md" ## The code determines the best SARIMA MODEL based on AIC"
+
+# ╔═╡ de9a1170-7343-4f33-906e-b0eb07a0803c
+# Check the time series to be modeled ()
+model_autosarima=auto_arima(train)
+
+# ╔═╡ 92b1447d-4f41-4058-8f59-3d6bfc928f9c
+md" ## Testing different models"
+
+# ╔═╡ c54d607f-3c44-46c0-95df-9b1848db1771
+md" AIC is just a reference, the best model is determined by the modeler looking at the result"
+
+# ╔═╡ ca7b4c53-f435-4268-906b-2e138768940b
+# Check the times series to be modeled ()
+model_sarima = SARIMA(train; order = (0,2,1), seasonal_order = (0, 0, 0, 0))
+
+# ╔═╡ cd2b33a5-eed6-449f-9209-495aefe1718a
+StateSpaceModels.fit!(model_sarima)
+
+# ╔═╡ baa71fbe-2b57-45e2-81e6-0a436fb40ea4
+md"## Forecasting"
+
+# ╔═╡ 8d34f6b2-2089-42e3-8f31-529004d96d43
+@bind horizon Slider(2021-length(test): 2100, default=2070)
+
+# ╔═╡ 2120859b-a9c6-479c-88a8-dfb3e6b653ff
+horizon
+
+# ╔═╡ 264a1e00-48b9-47db-a130-5b85ef5eb6b7
+steps_ahead=horizon-2021+length(test)+1;
+
+# ╔═╡ 16810242-f929-41c8-ac39-b60650ccfd2f
+steps_ahead
+
+# ╔═╡ 4c0e3723-2e1a-4efc-b176-bbef001857a6
+md" ## Testing models "
+
+# ╔═╡ a9bd2256-e4fc-448b-acc6-3db24f706683
+fore_arima=zeros(steps_ahead);
+
+# ╔═╡ d1dbfd6c-e275-4c7a-8ff9-c70b67ac755a
+forec_sarima = forecast(model_sarima, steps_ahead);
+
+# ╔═╡ 8c02f391-e667-4fa7-832c-f64edd7f7c05
+# This a step changes the vector to float values
+for i=1:steps_ahead
+	yyy=forec_sarima.expected_value[i]
+	fore_arima[i]=yyy[1]
+end 
+
+# ╔═╡ 2a95db94-e812-4ce8-87f4-126a0f38a488
+begin
+plot(fore_arima[1:length(test)], label="model",title="Model ARIMA vs Data (test)");
+plot!(test, label="test")
+end
+
+# ╔═╡ b7d1b0b8-04cf-426a-955d-6787904338f9
+plot(model_sarima, forec_sarima, title="Projection ARIMA")
+
+# ╔═╡ 8b14e2d0-18b5-4b05-85dc-a96ba306e1dd
+md"""
+### Naive model
+"""
+
+# ╔═╡ 21ff0765-5d6a-4e21-ba3c-2bcba20b8d4e
+model_naive = SeasonalNaive(train, 1);
+
+# ╔═╡ 710eae40-a30c-420e-94a9-a368804bd46c
+StateSpaceModels.fit!(model_naive);
+
+# ╔═╡ 3a637064-3ad7-4175-910d-e014fdef0e5b
+forec_naive = forecast(model_naive, steps_ahead);
+
+# ╔═╡ 503094a4-3524-47a7-b393-06a18eb38523
+plot(model_naive, forec_naive, title="Projection Naive")
+
+# ╔═╡ a2da425e-9ea6-4c01-96e0-bfa07200bf77
+fore_naive=zeros(steps_ahead);
+
+# ╔═╡ 3edc3988-4cf9-4317-a7af-00b0d652f6ed
+# This a step changes the vector to float values
+for i=1:steps_ahead
+	yyy=forec_naive.expected_value[i]
+	fore_naive[i]=yyy[1]
+end 
+
+# ╔═╡ 7f214d6e-f395-4671-ba92-8b20abc32e68
+df_results=DataFrame(ARIMA = fore_arima,NAIVE =fore_naive)
+
+# ╔═╡ 4ac5653f-f1e3-4cf3-b50d-83494cfb564e
+CSV.write("results_arima.CSV",df_results)
+
+# ╔═╡ Cell order:
+# ╠═6b9ae78f-bac5-4f3c-ae59-d2c80480f97f
+# ╠═4606f401-9493-4029-beaa-e293a51658d8
+# ╟─5756f9a0-8594-4d1c-af6a-f51e72238245
+# ╠═2b4ef7ee-fb4a-11ec-3d0e-0f782e2b6bff
+# ╟─ce63855b-58e2-45cc-bbac-401151de6cd4
+# ╠═0bbdcdd0-284e-4b4c-b466-1076eb540f16
+# ╠═51adcd77-efa2-4ba2-9e7b-81f3f91707f2
+# ╠═bec161ff-769e-44e6-900b-ff93d271ca36
+# ╠═18e18a70-812e-4517-a32c-dffa8b2e030e
+# ╠═1d15e180-dcb0-4e23-bd52-bf51e553bdb1
+# ╠═148f9adf-df73-4f64-8314-133c408ed912
+# ╠═cb70a5f0-83fd-4fea-bcf0-c779aec9b301
+# ╠═e3c8a4ab-b81a-4c43-817f-e58f71918da1
+# ╟─99013baf-9c22-45f4-b552-4b9a810c22ec
+# ╠═e82e3741-9376-4b72-a944-bafb6988da70
+# ╠═b5d7dac3-1b06-404c-a12e-498106fe1209
+# ╟─3a5388e7-61b4-4fd3-ba08-dcbd70da2ad9
+# ╠═d88e5513-5eb6-4477-98e8-e97ca4b7df60
+# ╟─7fc19e9f-ce65-43fc-8f9f-e1faa272edde
+# ╠═e02c2e0b-2467-436b-8686-ebc93383408f
+# ╠═a22a2bdb-c9e8-4e47-9c98-e2baf3722832
+# ╠═d3e3969d-4077-47db-9745-4784094a8520
+# ╠═6c325e7d-08ee-4a22-badc-d4f29e493577
+# ╟─4ccb2617-9f6c-453b-b32c-bcdb39eaa38e
+# ╠═ab46a702-49fe-4a81-8613-4e9c886df841
+# ╠═23e7b3bf-a535-444f-b978-c0866ffbc0cf
+# ╠═6a3e3eaa-6ef7-4db2-a7d3-8bd823e56378
+# ╠═66854283-afee-44c5-a636-f416b3c5bdb1
+# ╟─17f46aef-2575-460b-9546-60b878216e40
+# ╠═de9a1170-7343-4f33-906e-b0eb07a0803c
+# ╟─92b1447d-4f41-4058-8f59-3d6bfc928f9c
+# ╠═c54d607f-3c44-46c0-95df-9b1848db1771
+# ╠═ca7b4c53-f435-4268-906b-2e138768940b
+# ╠═cd2b33a5-eed6-449f-9209-495aefe1718a
+# ╟─baa71fbe-2b57-45e2-81e6-0a436fb40ea4
+# ╠═8d34f6b2-2089-42e3-8f31-529004d96d43
+# ╠═2120859b-a9c6-479c-88a8-dfb3e6b653ff
+# ╠═264a1e00-48b9-47db-a130-5b85ef5eb6b7
+# ╠═16810242-f929-41c8-ac39-b60650ccfd2f
+# ╟─4c0e3723-2e1a-4efc-b176-bbef001857a6
+# ╠═a9bd2256-e4fc-448b-acc6-3db24f706683
+# ╠═d1dbfd6c-e275-4c7a-8ff9-c70b67ac755a
+# ╟─8c02f391-e667-4fa7-832c-f64edd7f7c05
+# ╠═2a95db94-e812-4ce8-87f4-126a0f38a488
+# ╠═b7d1b0b8-04cf-426a-955d-6787904338f9
+# ╟─8b14e2d0-18b5-4b05-85dc-a96ba306e1dd
+# ╠═21ff0765-5d6a-4e21-ba3c-2bcba20b8d4e
+# ╠═710eae40-a30c-420e-94a9-a368804bd46c
+# ╠═3a637064-3ad7-4175-910d-e014fdef0e5b
+# ╠═503094a4-3524-47a7-b393-06a18eb38523
+# ╠═a2da425e-9ea6-4c01-96e0-bfa07200bf77
+# ╠═3edc3988-4cf9-4317-a7af-00b0d652f6ed
+# ╠═7f214d6e-f395-4671-ba92-8b20abc32e68
+# ╠═4ac5653f-f1e3-4cf3-b50d-83494cfb564e
